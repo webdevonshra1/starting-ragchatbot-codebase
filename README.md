@@ -54,7 +54,7 @@ graph TB
     TM -- "delegates search" --> VS
 ```
 
-For detailed query flow and document ingestion diagrams, see [Architecture Diagram](https://htmlpreview.github.io/?https://github.com/webdevonshra1/starting-ragchatbot-codebase/blob/main/architecture-diagram.html).
+For detailed query flow and document ingestion diagrams, see [Architecture Diagram](https://webdevonshra1.github.io/starting-ragchatbot-codebase/architecture-diagram.html).
 
 ## Prerequisites
 
