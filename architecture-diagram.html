@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RAG Chatbot - Architecture Diagram</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: #0f172a;
+            color: #e2e8f0;
+            min-height: 100vh;
+            padding: 2rem;
+        }
+        h1 {
+            text-align: center;
+            font-size: 1.8rem;
+            font-weight: 600;
+            margin-bottom: 0.3rem;
+            color: #f8fafc;
+        }
+        .subtitle {
+            text-align: center;
+            color: #94a3b8;
+            font-size: 0.95rem;
+            margin-bottom: 2rem;
+        }
+        .diagram-section {
+            max-width: 1100px;
+            margin: 0 auto 3rem;
+            background: #1e293b;
+            border-radius: 16px;
+            border: 1px solid #334155;
+            padding: 2rem;
+            box-shadow: 0 4px 24px rgba(0,0,0,0.3);
+        }
+        .diagram-section h2 {
+            font-size: 1.15rem;
+            color: #38bdf8;
+            margin-bottom: 1.2rem;
+            padding-bottom: 0.6rem;
+            border-bottom: 1px solid #334155;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .diagram-section h2 .num {
+            background: #38bdf8;
+            color: #0f172a;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.85rem;
+            font-weight: 700;
+            flex-shrink: 0;
+        }
+        .mermaid {
+            display: flex;
+            justify-content: center;
+        }
+        .mermaid svg {
+            max-width: 100%;
+            height: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>Course Materials RAG Chatbot</h1>
+    <p class="subtitle">Application Architecture &amp; Data Flow</p>
+
+    <!-- Diagram 1: High-Level Architecture -->
+    <div class="diagram-section">
+        <h2><span class="num">1</span> High-Level Architecture</h2>
+        <pre class="mermaid">
+%%{init: {'theme': 'dark', 'themeVariables': { 'primaryColor': '#1e3a5f', 'primaryBorderColor': '#38bdf8', 'primaryTextColor': '#e2e8f0', 'lineColor': '#64748b', 'secondaryColor': '#1e293b', 'tertiaryColor': '#0f172a', 'edgeLabelBackground': '#1e293b', 'fontSize': '14px' }}}%%
+graph TB
+    subgraph FRONTEND["Frontend (Static HTML/CSS/JS)"]
+        UI["Chat Interface<br/><i>index.html + style.css + script.js</i>"]
+    end
+
+    subgraph SERVER["FastAPI Server &mdash; app.py (port 8000)"]
+        API_Q["POST /api/query"]
+        API_C["GET /api/courses"]
+        STATIC["/ &rarr; static files"]
+    end
+
+    subgraph BACKEND["Backend Components"]
+        RAG["RAGSystem<br/><i>rag_system.py</i>"]
+        DP["DocumentProcessor<br/><i>document_processor.py</i>"]
+        VS["VectorStore<br/><i>vector_store.py</i>"]
+        AI["AIGenerator<br/><i>ai_generator.py</i>"]
+        SM["SessionManager<br/><i>session_manager.py</i>"]
+        TM["ToolManager + CourseSearchTool<br/><i>search_tools.py</i>"]
+    end
+
+    subgraph EXTERNAL["External Services & Storage"]
+        CLAUDE["Claude API<br/><i>claude-sonnet-4-20250514</i>"]
+        CHROMA[("ChromaDB<br/><i>course_catalog<br/>course_content</i>")]
+        DOCS["docs/<br/><i>course1-4_script.txt</i>"]
+    end
+
+    UI -- "HTTP requests" --> API_Q
+    UI -- "HTTP requests" --> API_C
+    API_Q --> RAG
+    API_C --> RAG
+    STATIC -. "serves" .-> UI
+
+    RAG --> DP
+    RAG --> VS
+    RAG --> AI
+    RAG --> SM
+    RAG --> TM
+
+    AI -- "API calls" --> CLAUDE
+    VS -- "read/write" --> CHROMA
+    DP -- "reads" --> DOCS
+    TM -- "delegates search" --> VS
+
+    classDef frontend fill:#1e3a5f,stroke:#38bdf8,stroke-width:2px,color:#e2e8f0
+    classDef server fill:#1a332e,stroke:#4ade80,stroke-width:2px,color:#e2e8f0
+    classDef backend fill:#2d1f3d,stroke:#a78bfa,stroke-width:2px,color:#e2e8f0
+    classDef external fill:#3b1f1f,stroke:#f87171,stroke-width:2px,color:#e2e8f0
+
+    class UI frontend
+    class API_Q,API_C,STATIC server
+    class RAG,DP,VS,AI,SM,TM backend
+    class CLAUDE,CHROMA,DOCS external
+        </pre>
+    </div>
+
+    <!-- Diagram 2: Query Flow -->
+    <div class="diagram-section">
+        <h2><span class="num">2</span> Query Flow (User Asks a Question)</h2>
+        <pre class="mermaid">
+%%{init: {'theme': 'dark', 'themeVariables': { 'primaryColor': '#1e3a5f', 'primaryBorderColor': '#38bdf8', 'primaryTextColor': '#e2e8f0', 'lineColor': '#64748b', 'secondaryColor': '#1e293b', 'tertiaryColor': '#0f172a', 'edgeLabelBackground': '#1e293b', 'fontSize': '14px' }}}%%
+sequenceDiagram
+    participant U as User (Browser)
+    participant A as FastAPI (app.py)
+    participant R as RAGSystem
+    participant S as SessionManager
+    participant G as AIGenerator
+    participant C as Claude API
+    participant T as ToolManager
+    participant V as VectorStore
+    participant D as ChromaDB
+
+    U->>A: POST /api/query {query, session_id}
+    A->>R: query(question, session_id)
+    R->>S: get_conversation_history(session_id)
+    S-->>R: history (or None)
+
+    R->>G: generate_response(query, history, tools)
+    G->>C: messages.create(query + system prompt + tools)
+    C-->>G: response (tool_use or text)
+
+    alt Claude wants to search
+        G->>T: execute_tool("search_course_content", params)
+        T->>V: search(query, course_name, lesson_number)
+        V->>D: course_catalog.query() — resolve course name
+        D-->>V: matched course title
+        V->>D: course_content.query() — semantic search
+        D-->>V: matching chunks + metadata
+        V-->>T: SearchResults
+        T-->>G: formatted results string
+
+        G->>C: send tool results back for synthesis
+        C-->>G: final answer
+    end
+
+    G-->>R: response text
+    R->>S: add_exchange(session_id, query, response)
+    R-->>A: (answer, sources)
+    A-->>U: {answer, sources, session_id}
+        </pre>
+    </div>
+
+    <!-- Diagram 3: Document Ingestion -->
+    <div class="diagram-section">
+        <h2><span class="num">3</span> Startup: Document Ingestion Pipeline</h2>
+        <pre class="mermaid">
+%%{init: {'theme': 'dark', 'themeVariables': { 'primaryColor': '#1e3a5f', 'primaryBorderColor': '#38bdf8', 'primaryTextColor': '#e2e8f0', 'lineColor': '#64748b', 'secondaryColor': '#1e293b', 'tertiaryColor': '#0f172a', 'edgeLabelBackground': '#1e293b', 'fontSize': '14px' }}}%%
+flowchart LR
+    subgraph INPUT["Input"]
+        F1["course1_script.txt"]
+        F2["course2_script.txt"]
+        F3["course3_script.txt"]
+        F4["course4_script.txt"]
+    end
+
+    subgraph PARSE["DocumentProcessor"]
+        P1["Parse metadata<br/><i>title, link, instructor</i>"]
+        P2["Extract lessons<br/><i>Lesson N: Title</i>"]
+        P3["Chunk text<br/><i>800 chars, 100 overlap</i>"]
+    end
+
+    subgraph EMBED["VectorStore"]
+        E1["Embed with<br/>all-MiniLM-L6-v2"]
+    end
+
+    subgraph STORE["ChromaDB Collections"]
+        C1[("course_catalog<br/><i>titles, links,<br/>instructor, lessons</i>")]
+        C2[("course_content<br/><i>text chunks +<br/>course & lesson metadata</i>")]
+    end
+
+    F1 & F2 & F3 & F4 --> P1 --> P2 --> P3
+    P3 -- "CourseChunks" --> E1
+    P1 -- "Course metadata" --> E1
+    E1 -- "course metadata" --> C1
+    E1 -- "content chunks" --> C2
+
+    classDef input fill:#1a332e,stroke:#4ade80,stroke-width:2px,color:#e2e8f0
+    classDef parse fill:#2d1f3d,stroke:#a78bfa,stroke-width:2px,color:#e2e8f0
+    classDef embed fill:#1e3a5f,stroke:#38bdf8,stroke-width:2px,color:#e2e8f0
+    classDef store fill:#3b1f1f,stroke:#f87171,stroke-width:2px,color:#e2e8f0
+
+    class F1,F2,F3,F4 input
+    class P1,P2,P3 parse
+    class E1 embed
+    class C1,C2 store
+        </pre>
+    </div>
+
+    <script>
+        mermaid.initialize({
+            startOnLoad: true,
+            securityLevel: 'loose',
+            fontFamily: 'Segoe UI, system-ui, sans-serif'
+        });
+    </script>
+</body>
+</html>
